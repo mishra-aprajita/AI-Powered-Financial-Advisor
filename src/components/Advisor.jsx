@@ -31,17 +31,61 @@ export default function Advisor({ expenses, profile, darkMode, currency = 'INR' 
 
   useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages, thinking]);
 
-  const send = (text) => {
+  const send = async (text) => {
     const msg = text || input.trim();
     if (!msg || thinking) return;
     setInput('');
-    setMessages(prev => [...prev, { id: Date.now(), role: 'user', text: msg, time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) }]);
+
+    // Add user message
+    setMessages(prev => [...prev, {
+      id: Date.now(),
+      role: 'user',
+      text: msg,
+      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    }]);
+
     setThinking(true);
-    setTimeout(() => {
-      setMessages(prev => [...prev, { id: Date.now() + 1, role: 'assistant', text: AI_RESPONSES[idx.current % AI_RESPONSES.length], time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) }]);
-      idx.current++;
-      setThinking(false);
-    }, 1300);
+
+    try {
+      // Call Anthropic Claude API
+      const response = await fetch('', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': 'YOUR_API_KEY_HERE',        // 🔑 paste your API key here
+          'anthropic-version': '2023-06-01',
+          'anthropic-dangerous-direct-browser-access': 'true',
+        },
+        body: JSON.stringify({
+          model: 'claude-sonnet-4-20250514',
+          max_tokens: 300,
+          system: 'You are a helpful personal finance advisor. Give short, clear advice in 2-3 lines only. Focus on budgeting, saving, and spending habits.',
+          messages: [{ role: 'user', content: msg }]
+        })
+      });
+
+      const data = await response.json();
+      const reply = data.content[0].text;
+
+      // Add AI reply
+      setMessages(prev => [...prev, {
+        id: Date.now() + 1,
+        role: 'assistant',
+        text: reply,
+        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+      }]);
+
+    } catch (error) {
+      // Show error message if API fails
+      setMessages(prev => [...prev, {
+        id: Date.now() + 1,
+        role: 'assistant',
+        text: 'Sorry, I could not connect right now. Please try again!',
+        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+      }]);
+    }
+
+    setThinking(false);
     inputRef.current?.focus();
   };
 
